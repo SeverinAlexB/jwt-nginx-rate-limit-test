@@ -1,10 +1,9 @@
 use axum::{
-    http::{StatusCode, HeaderMap, header},
+    http::{StatusCode, header},
     response::{IntoResponse, Response},
     routing::{get, post},
     Router,
     extract::{State, multipart::Multipart},
-    body::Bytes,
 };
 use cookie::Cookie;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
@@ -107,7 +106,7 @@ async fn login_handler(cookies: Cookies) -> impl IntoResponse {
     cookies.add(cookie);
     
     // Return the user ID in the response for demonstration purposes
-    format!("Login successful. User ID: {}", user_id)
+    user_id
 }
 
 // Protected fetch handler - will validate the JWT token
