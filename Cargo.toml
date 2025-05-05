@@ -15,7 +15,7 @@ rand = "0.8.5"
 chrono = "0.4.35"
 cookie = "0.18.0"
 tower-cookies = "0.10.0"
-reqwest = { version = "0.12.15", features = ["cookies", "json"] }
+reqwest = { version = "0.12.15", features = ["cookies", "json", "multipart"] }
 anyhow = "1.0"
 uuid = { version = "1.16.0", features = ["v4"] }
 tempfile = "3.19.1"

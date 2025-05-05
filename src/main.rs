@@ -16,6 +16,8 @@ use tempfile::TempDir;
 use tokio;
 use uuid::Uuid;
 
+mod tests;
+
 // Constants
 const JWT_SECRET: &[u8] = b"my_super_secret_key"; // In production, use a secure randomly generated key
 const COOKIE_NAME: &str = "authorization";
