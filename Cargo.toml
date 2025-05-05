@@ -1,0 +1,17 @@
+[package]
+name = "jwt-test"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum = "0.7.4"
+tokio = { version = "1.36.0", features = ["full"] }
+tower = "0.4.13"
+tower-http = { version = "0.5.1", features = ["cors"] }
+jsonwebtoken = "9.2.0"
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.114"
+rand = "0.8.5"
+chrono = "0.4.35"
+cookie = "0.18.0"
+tower-cookies = "0.10.0"
