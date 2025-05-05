@@ -16,12 +16,22 @@ async fn main() -> Result<()> {
     println!("Testing root endpoint...");
     let response = client.get(format!("{}", server_url)).send().await?;
     println!("Root response: {} {}", response.status(), response.text().await?);
+
     
     // Step 2: Login to get the JWT token
     println!("\nLogin to get JWT token...");
     let login_response = client.post(format!("{}/login", server_url)).send().await?;
     println!("Login status: {}", login_response.status());
+
+    let cookies = login_response.cookies().map(|c| format!("{}={}", c.name(), c.value())).collect::<Vec<_>>();
+    println!("Login cookies: {:?}", cookies);
     println!("Login response: {}", login_response.text().await?);
+
+    println!("\nFetching user info...");
+    let fetch_response = client.get(format!("{}/me", server_url)).send().await?;
+    println!("Status: {}", fetch_response.status());
+    println!("Response: {}", fetch_response.text().await?);
+
     
     // Step 3: Make 5 requests to the protected endpoint
     println!("\nMaking 5 requests to the protected endpoint...");
@@ -32,7 +42,7 @@ async fn main() -> Result<()> {
         println!("Response: {}", fetch_response.text().await?);
         
         // Small delay between requests
-        tokio::time::sleep(Duration::from_millis(500)).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
     }
     
     Ok(())

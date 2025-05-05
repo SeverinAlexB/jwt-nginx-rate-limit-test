@@ -14,7 +14,7 @@ use chrono;
 
 // Constants
 const JWT_SECRET: &[u8] = b"my_super_secret_key"; // In production, use a secure randomly generated key
-const COOKIE_NAME: &str = "jwt_session";
+const COOKIE_NAME: &str = "authorization";
 
 #[tokio::main]
 async fn main() {
