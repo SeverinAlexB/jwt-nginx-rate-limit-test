@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-axum = "0.7.4"
+axum = { version = "0.7.4", features = ["multipart"] }
 tokio = { version = "1.36.0", features = ["full"] }
 tower = "0.4.13"
 tower-http = { version = "0.5.1", features = ["cors"] }
@@ -17,3 +17,5 @@ cookie = "0.18.0"
 tower-cookies = "0.10.0"
 reqwest = { version = "0.12.15", features = ["cookies", "json"] }
 anyhow = "1.0"
+uuid = { version = "1.16.0", features = ["v4"] }
+tempfile = "3.19.1"

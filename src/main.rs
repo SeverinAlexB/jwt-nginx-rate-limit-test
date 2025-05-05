@@ -3,6 +3,7 @@ use axum::{
     response::IntoResponse,
     routing::{get, post},
     Router,
+    extract::{State, multipart::Multipart},
 };
 use cookie::Cookie;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
@@ -11,6 +12,9 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tower_cookies::{CookieManagerLayer, Cookies};
 use chrono;
+use tempfile::TempDir;
+use tokio;
+use uuid::Uuid;
 
 // Constants
 const JWT_SECRET: &[u8] = b"my_super_secret_key"; // In production, use a secure randomly generated key
@@ -18,9 +22,20 @@ const COOKIE_NAME: &str = "authorization";
 
 #[tokio::main]
 async fn main() {
+    // Create a temporary directory for file uploads
+    let temp_dir = match TempDir::new() {
+        Ok(dir) => dir,
+        Err(e) => {
+            eprintln!("Failed to create temporary directory: {}", e);
+            std::process::exit(1);
+        }
+    };
+    
+    println!("Temporary upload directory created at: {}", temp_dir.path().display());
+
     // Create a shared state for the application
     let state = Arc::new(AppState {
-        // Add any shared state here if needed
+        upload_dir: Arc::new(temp_dir),
     });
 
     // Set up the router with our routes
@@ -28,6 +43,7 @@ async fn main() {
         .route("/", get(root_handler))
         .route("/login", post(login_handler))
         .route("/fetch", get(fetch_handler))
+        .route("/upload", post(upload_handler))
         .layer(CookieManagerLayer::new())
         .with_state(state);
 
@@ -40,7 +56,8 @@ async fn main() {
 // Application state (can be expanded as needed)
 #[derive(Clone)]
 struct AppState {
-    // Add fields as needed
+    // Temporary directory for file uploads
+    upload_dir: Arc<TempDir>,
 }
 
 // Root handler - no authentication required
@@ -115,4 +132,73 @@ async fn fetch_handler(cookies: Cookies) -> impl IntoResponse {
     
     // Return "Hello, world!" if the token is valid
     (StatusCode::OK, "Hello, world!")
+}
+
+// File upload handler - authenticated endpoint
+async fn upload_handler(
+    cookies: Cookies,
+    State(state): State<Arc<AppState>>,
+    mut multipart: Multipart,
+) -> impl IntoResponse {
+    // Verify authentication
+    let token = match cookies.get(COOKIE_NAME) {
+        Some(cookie) => cookie.value().to_string(),
+        None => return (StatusCode::UNAUTHORIZED, "No session cookie found".to_string()),
+    };
+    
+    // Validate the token
+    let token_data = match decode::<Claims>(
+        &token,
+        &DecodingKey::from_secret(JWT_SECRET),
+        &Validation::default(),
+    ) {
+        Ok(data) => data,
+        Err(_) => return (StatusCode::UNAUTHORIZED, "Invalid token".to_string()),
+    };
+    
+    // Process the uploaded file
+    let user_id = token_data.claims.sub;
+    
+    // Process the file upload
+    while let Some(field) = match multipart.next_field().await {
+        Ok(field) => field,
+        Err(e) => {
+            eprintln!("Error getting next field: {}", e);
+            return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to process upload".to_string());
+        }
+    } {
+        // Get field name, file name and content type
+        let _name = field.name().unwrap_or("").to_string();
+        let file_name = match field.file_name() {
+            Some(name) => name.to_string(),
+            None => continue, // Skip fields without a file name
+        };
+        
+        // Generate a unique filename to prevent conflicts
+        let unique_filename = format!("{}-{}", Uuid::new_v4(), file_name);
+        let file_path = state.upload_dir.path().join(&unique_filename);
+        
+        // Get the file data
+        let data = match field.bytes().await {
+            Ok(data) => data,
+            Err(e) => {
+                eprintln!("Failed to read file data: {}", e);
+                return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to read uploaded file".to_string());
+            }
+        };
+        
+        // Save the file
+        if let Err(e) = tokio::fs::write(&file_path, &data).await {
+            eprintln!("Failed to save file: {}", e);
+            return (StatusCode::INTERNAL_SERVER_ERROR, "Failed to save file".to_string());
+        }
+        
+        println!("User {} uploaded file: {} to {}", user_id, unique_filename, file_path.display());
+        
+        // Return success after the first file (we'll only handle one file for simplicity)
+        return (StatusCode::OK, format!("File uploaded successfully: {}", unique_filename));
+    }
+    
+    // If we get here, no valid file was found in the request
+    (StatusCode::BAD_REQUEST, "No file found in request".to_string())
 }
