@@ -60,6 +60,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+#[cfg(test)]
 mod tests {
     use reqwest::StatusCode;
 
@@ -97,7 +98,6 @@ mod tests {
             .expect("Authorization JWT cookie not found");
 
         let user_id = login_response.text().await.unwrap();
-        println!("User ID: {}", user_id);
 
         Ok((client, user_id))
     }
@@ -114,7 +114,43 @@ mod tests {
         );
 
         let body = response.text().await.unwrap();
-        println!("Body: {}", body);
         assert!(body.contains(&user_id));
+    }
+
+
+    #[tokio::test]
+    async fn test_request_rate_limiting() {
+        let (client, _user_id) = get_logged_in_client().await.unwrap();
+
+        let mut count = 0;
+        for _i in 0..5 {
+            let response = client.get(format!("{}/fetch", SERVER_URL)).send().await.unwrap();
+            println!("Response: {}", response.status());
+            if response.status() == StatusCode::SERVICE_UNAVAILABLE {
+                count += 1;
+            }
+        }
+        assert!(count >= 2, "Rate limit should be exceeded at least 2 times");
+    }
+
+    #[tokio::test]
+    async fn test_file_download() {
+        let (client, _user_id) = get_logged_in_client().await.unwrap();
+
+        let start = Instant::now();
+        let response = client.get(format!("{}/download", SERVER_URL)).send().await.unwrap(); // Download 512KB of data
+        assert_eq!(response.status(), StatusCode::OK, "Download endpoint should be accessible");
+        let _ = response.text().await.unwrap();
+        let duration = start.elapsed();
+        println!("Time taken: {:?}", duration);
+        assert!(duration > Duration::from_secs(3), "Download is limited to 100KB/s and should take at least 3 seconds");
+    }
+
+    #[tokio::test]
+    async fn test_file_upload() {
+        let (client, _user_id) = get_logged_in_client().await.unwrap();
+
+        let response = client.post(format!("{}/upload", SERVER_URL)).send().await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK, "Upload endpoint should be accessible");
     }
 }
