@@ -1,9 +1,10 @@
 use axum::{
-    http::StatusCode,
-    response::IntoResponse,
+    http::{StatusCode, HeaderMap, header},
+    response::{IntoResponse, Response},
     routing::{get, post},
     Router,
     extract::{State, multipart::Multipart},
+    body::Bytes,
 };
 use cookie::Cookie;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
@@ -44,6 +45,7 @@ async fn main() {
         .route("/login", post(login_handler))
         .route("/fetch", get(fetch_handler))
         .route("/upload", post(upload_handler))
+        .route("/download", get(download_handler))
         .layer(CookieManagerLayer::new())
         .with_state(state);
 
@@ -201,4 +203,56 @@ async fn upload_handler(
     
     // If we get here, no valid file was found in the request
     (StatusCode::BAD_REQUEST, "No file found in request".to_string())
+}
+
+// Generate and return 512KB of pseudo data
+async fn download_handler(cookies: Cookies) -> Response {
+    // Extract the JWT token from the session cookie
+    let token = match cookies.get(COOKIE_NAME) {
+        Some(cookie) => cookie.value().to_string(),
+        None => {
+            let body = "No session cookie found".to_string();
+            let mut response = Response::new(body.into());
+            *response.status_mut() = StatusCode::UNAUTHORIZED;
+            return response;
+        }
+    };
+    
+    // Validate the token
+    let token_data = match decode::<Claims>(
+        &token,
+        &DecodingKey::from_secret(JWT_SECRET),
+        &Validation::default(),
+    ) {
+        Ok(data) => data,
+        Err(_) => {
+            let body = "Invalid token".to_string();
+            let mut response = Response::new(body.into());
+            *response.status_mut() = StatusCode::UNAUTHORIZED;
+            return response;
+        }
+    };
+    
+    // Log the user ID
+    let user_id = token_data.claims.sub;
+    println!("Download request from user ID: {}", user_id);
+    
+    // Generate 512KB of pseudo data
+    let data_size = 512 * 1024; // 512KB
+    let mut rng = rand::thread_rng();
+    let data: Vec<u8> = (0..data_size).map(|_| rng.gen::<u8>()).collect();
+    
+    // Create a response with headers and body
+    let mut response = Response::new(data.into());
+    response.headers_mut().insert(
+        header::CONTENT_TYPE,
+        "application/octet-stream".parse().unwrap()
+    );
+    response.headers_mut().insert(
+        header::CONTENT_DISPOSITION,
+        "attachment; filename=\"random_data.bin\"".parse().unwrap()
+    );
+    *response.status_mut() = StatusCode::OK;
+    
+    response
 }
