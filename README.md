@@ -74,8 +74,8 @@ This repository demonstrates how to implement user-based rate limiting in Nginx 
 
 1. **Request Rate Limiting**: Limit requests per time period (e.g., 2 requests per minute)
 2. **Connection Limiting**: Limit concurrent connections per user
-3. **Bandwidth Limiting**: Restrict download speeds (e.g., 100KB/s)
-4. **Upload Limiting**: Limit to 1 concurrent connection per user
+3. **Bandwidth Limiting**: Restrict download speeds (e.g., 100KB/s), limit to 1 concurrent connection per user.
+4. **Upload Limiting**: Limit to 1 concurrent connection per user, no speed limit.
 
 ## Testing
 
@@ -95,3 +95,16 @@ cargo test
 - Nginx with JavaScript module (`ngx_http_js_module`) support
 - JWT authentication system that sets an `authorization` cookie
 
+## Install ngx_http_js_module
+
+- Add the official [nginx repo](https://nginx.org/en/linux_packages.html#Ubuntu) to apt.
+- Install binaries
+
+```bash
+apt update
+apt install nginx
+apt install nginx-module-njs
+```
+
+- Load njs module by adding load_module /usr/lib/nginx/modules/ngx_http_js_module.so; to the /etc/nginx/nginx.conf.
+- Check if your config is valid nginx -t.
